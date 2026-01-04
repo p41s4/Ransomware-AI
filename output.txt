@@ -203,10 +203,8 @@ No attribution or transactional analysis available.
 ------------------------------------------------------------
 The following aspects could not be assessed due to insufficient data:
 
-- Threat actor motivation
 - Victimology and targeted sectors
 - Campaign timelines
-- Confirmed attribution to related threat groups
 
 ------------------------------------------------------------
 END OF REPORT
