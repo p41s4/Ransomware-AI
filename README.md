@@ -12,12 +12,11 @@ The workflow aggregates data from multiple public and private sources to produce
 - Consolidate negotiations and ransom notes
 - Produce a **Threat Intelligence Report** with no inference or external enrichment
 
-  
-<img width="2183" height="857" alt="image" src="https://github.com/user-attachments/assets/1d27d3a9-a05b-4d4f-91e8-18c4dba96fd6" />
-
 ---
 
 ## High-Level Architecture
+  
+<img width="2183" height="857" alt="image" src="https://github.com/user-attachments/assets/1d27d3a9-a05b-4d4f-91e8-18c4dba96fd6" />
 
 **Input:**  
 - Ransomware group name (via chat / webhook trigger)
