@@ -277,28 +277,160 @@ Keep in mind that the faster you will get in touch, the less damage we cause.
 
 9. EXTORTION ANALYSIS
 ------------------------------------------------------------
-Total chats observed: 66
-Valid chats used for calculations: 15
+9. Extortion Analysis
+Number of total chats: 66
+Number of valid chats (with numeric initial and negotiated ransom values) used in calculations: 15
+Discount percentages per valid chat:
 
-Average discount across valid chats: 48.54%
+Chat ID 20230616
+Initial ransom: $160,000
+Negotiated ransom: $75,000
+Discount: ((160000 - 75000) / 160000) * 100 = 53.13%
 
-Discounts ranged from approximately 16% to over 86%, indicating high
-negotiation flexibility depending on victim response and timing.
+Chat ID 20230707
+Initial ransom: $350,000
+Negotiated ransom: $280,000
+Discount: ((350000 - 280000) / 350000) * 100 = 20.00%
+
+Chat ID 20230727
+Initial ransom: $250,000
+Negotiated ransom: $110,000
+Discount: ((250000 - 110000) / 250000) * 100 = 56.00%
+
+Chat ID 20230815
+Initial ransom: $2,400,000
+Negotiated ransom: $1,000,000
+Discount: ((2400000 - 1000000) / 2400000) * 100 = 58.33%
+
+Chat ID 20230929
+Initial ransom: $300,000
+Negotiated ransom: $250,000
+Discount: ((300000 - 250000) / 300000) * 100 = 16.67%
+
+Chat ID 20231112
+Initial ransom: $250,000
+Negotiated ransom: $150,000
+Discount: ((250000 - 150000) / 250000) * 100 = 40.00%
+
+Chat ID 20231209
+Initial ransom: $180,000
+Negotiated ransom: $105,000
+Discount: ((180000 - 105000) / 180000) * 100 = 41.67%
+
+Chat ID 20231217
+Initial ransom: $250,000
+Negotiated ransom: $150,000
+Discount: ((250000 - 150000) / 250000) * 100 = 40.00%
+
+Chat ID 20240129
+Initial ransom: $275,000
+Negotiated ransom: $140,000
+Discount: ((275000 - 140000) / 275000) * 100 = 49.09%
+
+Chat ID 20240329
+Initial ransom: $2,000,000
+Negotiated ransom: $1,075,995
+Discount: ((2000000 - 1075995) / 2000000) * 100 = 46.20%
+
+Chat ID 20240424
+Initial ransom: $3,500,000
+Negotiated ransom: $500,000
+Discount: ((3500000 - 500000) / 3500000) * 100 = 85.71%
+
+Chat ID 20240509
+Initial ransom: $1,700,000
+Negotiated ransom: $225,000
+Discount: ((1700000 - 225000) / 1700000) * 100 = 86.76%
+
+Chat ID 20240618
+Initial ransom: $400,000
+Negotiated ransom: $300,000
+Discount: ((400000 - 300000) / 400000) * 100 = 25.00%
+
+Chat ID 20240718
+Initial ransom: $225,000
+Negotiated ransom: $100,000
+Discount: ((225000 - 100000) / 225000) * 100 = 55.56%
+
+Chat ID 20250312
+Initial ransom: $150,000
+Negotiated ransom: $115,000
+Discount: ((150000 - 115000) / 150000) * 100 = 23.33%
+
+Average discount percentage across valid chats:
+(53.13 + 20 + 56 + 58.33 + 16.67 + 40 + 41.67 + 40 + 49.09 + 46.20 + 85.71 + 86.76 + 25 + 55.56 + 23.33) / 15 = 48.54%
 
 
 9.1 EXTORTION PRESSURE TECHNIQUES
 ------------------------------------------------------------
-Identified techniques include:
+The following pressure or coercion techniques have been identified across the chats based on attacker messages:
 
-- Deadlines and countdowns
-- Threats of data publication
-- Claims of data exfiltration
-- Reputational damage warnings
-- Business disruption threats
-- Repeated follow-ups and escalation
-- Limited-time discounts and urgency framing
+Deadlines or countdowns
+Examples:
+- "You have 24 hours to give us your decision regarding this deal. If you stay silent, we will announce the breach on our blog."
+- "You have until Friday to get more funds. Let's see what you will get and decide how to continue our deal."
+- "We will wait until Monday. Update me on your steps."
+- "If we don't get a respond within next 24 hours, we will be forced to announce your corporate data leak on our blog."
+- "Your transfer won't be frozen if you refer to any local broker who can facilitate the transfer. Anyway, my bosses has agreed to take a final step and come down to $1,400,000. We can even suggest you to split this into two payments."
+- "We need your decision today."
+Multiple messages urging to speed up negotiations or warning of imminent publication if no payment or decision.
 
-No additional coercion techniques were identified.
+Threats of data publication
+Examples:
+- "If you stay silent, we will announce the breach on our blog."
+- "Your data will be published soon."
+- "If you don't pay, it will be released to public."
+- "The data of your company and your employees is now freely available."
+- "We will announce this incident on our blog and your data will be uploaded there as well."
+- "We've had to move to your data uploading to our blog if we don't hear back from you by Monday."
+
+
+Increasing ransom demands / reduced discounts
+Examples:
+- "The price is not a shock for your company. ... We can provide additional 50K discount, so let's not complicate things."
+- "The post has been removed but it might be returned at any second."
+- "If you don't want a demand increase, pay on Monday or your data will be published."
+- "Please note that 22.5GB of your corporate data will be published on our blog."
+- "If there is no payment by the weekend, we will have to raise the price to $275,000 on Monday."
+
+Claims of data exfiltration
+Examples:
+- "We've taken a great amount of your corporate data prior to encryption."
+- "These files were taken from your network prior to encryption."
+- "Your data will be available for downloading soon."
+- "We're the ones who can provide security report on vulnerabilities and evidence of data removal."
+- "We have your files. We took everything you see in the list (sizes ranging from hundreds of MBs to GBs)."
+
+Reputational damage warnings
+Examples:
+- "We will mislead employees, clients, or vendors into unintentionally opening our malware ... harming your reputation."
+- "Your stakeholders will begin to question the company's integrity and ability to safeguard critical information, leading to an erosion of trust."
+- "Try to calculate possible losses from lawsuits, penalties and total loss of your clients. Reputational damage for your business is really deadly."
+
+Business disruption threats
+Examples:
+- "Dragging out the negotiation process will lead to failing of a deal."
+- "We are not interested in ruining you financially but dragging out the negotiation will lead to failing a deal."
+- "Your business is fated without a deal here."
+- "You can't operate without payment. You will be forced to announce your leak."
+- "You will lose clients if you don't pay."
+
+Repeated follow-ups or escalation
+Examples:
+- "Are you going to work with us?" repeated across numerous chats.
+- Multiple messages checking for victim updates and pressing for status or payment.
+- Messages stating "We are waiting for your decision today."
+- Persistent inquiries for victim response/reminder of consequences.
+
+Limited-time discounts or urgency framing
+Examples:
+- "If you pay within 48 hours, we can offer a discount."
+- "We can accept $75,000 only if you're ready to pay quickly."
+- "In case we receive the payment within next 48 hours, we will provide you with a 20% discount."
+- "If you arrange payment within next 24 hours, leadership is willing to accept discounted amount."
+
+
+No other pressure or coercion techniques are clearly evidenced in the attacker messages.
 
 
 10. ANALYSIS LIMITATIONS
