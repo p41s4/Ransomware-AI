@@ -10,6 +10,8 @@ The pipeline ingests heterogeneous Threat Intelligence sources (open-source, rep
 
 The LLM is constrained to operate in strict analytical mode, producing professional Threat Intelligence reports without adding assumptions, enrichment, or external knowledge.
 
+<img width="1674" height="463" alt="image" src="https://github.com/user-attachments/assets/c5aeb1ba-9130-4be6-aa45-675ae00f2bd7" />
+
 ## Key Features
 
 - Multi-source CTI ingestion and normalization  
