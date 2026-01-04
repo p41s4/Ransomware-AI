@@ -8,8 +8,8 @@
       "type": "@n8n/n8n-nodes-langchain.chatTrigger",
       "typeVersion": 1.4,
       "position": [
-        -16,
-        -80
+        32,
+        112
       ],
       "id": "4efec626-3105-46fe-b8cc-082378626f5f",
       "name": "When chat message received",
@@ -17,26 +17,26 @@
     },
     {
       "parameters": {
-        "numberInputs": 3
+        "numberInputs": 5
       },
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        1056,
-        -96
+        1408,
+        64
       ],
       "id": "47d4f84b-fc03-4022-8a28-65c510afb9cf",
       "name": "Merge"
     },
     {
       "parameters": {
-        "jsCode": "/**\n * Threat Intelligence Extractor – n8n compatible (synonyms FIXED)\n * Key fix:\n * - synonyms may live under meta.synonyms (as in your input)\n * - outputs actor.synonyms explicitly\n * - keeps actor.aliases and actor.alt_names\n */\n\nfunction isObject(v) {\n  return v && typeof v === \"object\" && !Array.isArray(v);\n}\n\nfunction uniq(arr) {\n  return [...new Set((arr || []).filter(Boolean))];\n}\n\nfunction isValidTechniqueId(id) {\n  return typeof id === \"string\" && /^T\\d{4}(\\.\\d{3})?$/.test(id.trim());\n}\n\nfunction pick(obj, keys) {\n  const out = {};\n  for (const k of keys) {\n    if (obj && Object.prototype.hasOwnProperty.call(obj, k)) out[k] = obj[k];\n  }\n  return out;\n}\n\n/* ================= ACTOR ================= */\n\nfunction extractActor(root) {\n  // Your feed uses common_name frequently\n  const primaryName = root.name ?? root.common_name ?? root.actor_name ?? null;\n\n  const aliases = (Array.isArray(root.aliases) ? root.aliases : [])\n    .filter((x) => typeof x === \"string\")\n    .map((x) => x.trim())\n    .filter(Boolean);\n\n  // ✅ FIX: synonyms can be at root.synonyms OR meta.synonyms\n  const synonyms = [\n    ...(Array.isArray(root.synonyms) ? root.synonyms : []),\n    ...(Array.isArray(root?.meta?.synonyms) ? root.meta.synonyms : []),\n  ]\n    .filter((x) => typeof x === \"string\")\n    .map((x) => x.trim())\n    .filter(Boolean);\n\n  const altNames = (Array.isArray(root.alt_names) ? root.alt_names : [])\n    .filter((x) => typeof x === \"string\")\n    .map((x) => x.trim())\n    .filter(Boolean);\n\n  // References: keep root.profile if present, and also include meta.refs (present in your input)\n  const profileRefs = [\n    ...(Array.isArray(root.profile) ? root.profile : []),\n    ...(Array.isArray(root?.meta?.refs) ? root.meta.refs : []),\n  ].filter(Boolean);\n\n  return {\n    name: primaryName,\n    description: root.description ?? null,\n    meta: root.meta ?? null,\n    profile_refs: uniq(profileRefs),\n    aliases: uniq(aliases),\n    synonyms: uniq(synonyms),\n    alt_names: uniq(altNames),\n    confidence: root.confidence ?? null,\n  };\n}\n\n/* ================= FINANCIAL ================= */\n\nfunction extractFinancial(root) {\n  return {\n    btc_addresses: uniq(Array.isArray(root.btc_address) ? root.btc_address : []),\n  };\n}\n\n/* ================= TOOLING ================= */\n\nfunction extractTooling(root) {\n  if (!Array.isArray(root.tools)) return [];\n  return root.tools\n    .filter(isObject)\n    .map((block) => {\n      const out = {};\n      for (const [k, v] of Object.entries(block)) {\n        if (Array.isArray(v) && v.length) out[k] = uniq(v);\n      }\n      return out;\n    })\n    .filter((x) => Object.keys(x).length);\n}\n\n/* ================= MITRE ================= */\n\nfunction extractMitre(root) {\n  if (!Array.isArray(root.ttps)) return null;\n\n  const tactics = [];\n  const techniqueIds = new Set();\n\n  for (const t of root.ttps) {\n    if (!isObject(t)) continue;\n\n    const tactic = {\n      tactic_id: t.tactic_id,\n      tactic_name: t.tactic_name,\n      techniques: [],\n    };\n\n    if (Array.isArray(t.techniques)) {\n      for (const tech of t.techniques) {\n        if (!isObject(tech)) continue;\n        if (!isValidTechniqueId(tech.technique_id)) continue;\n\n        tactic.techniques.push({\n          technique_id: tech.technique_id,\n          technique_name: tech.technique_name,\n          technique_details: tech.technique_details,\n        });\n\n        techniqueIds.add(tech.technique_id);\n      }\n    }\n\n    if (tactic.techniques.length) {\n      tactic.technique_count = tactic.techniques.length;\n      tactics.push(tactic);\n    }\n  }\n\n  return {\n    tactics,\n    technique_ids: [...techniqueIds],\n  };\n}\n\nfunction mergeMitre(current, incoming) {\n  if (!incoming?.tactics?.length) return current;\n  const out = current || { tactics: [], technique_ids: [] };\n\n  const index = new Map();\n  for (const t of out.tactics || []) {\n    index.set(`${t.tactic_id}|${t.tactic_name}`, t);\n  }\n\n  for (const t of incoming.tactics) {\n    const key = `${t.tactic_id}|${t.tactic_name}`;\n\n    if (!index.has(key)) {\n      index.set(key, {\n        tactic_id: t.tactic_id,\n        tactic_name: t.tactic_name,\n        techniques: [...t.techniques],\n        technique_count: t.techniques.length,\n      });\n      continue;\n    }\n\n    const existing = index.get(key);\n    const seen = new Set(existing.techniques.map((x) => x.technique_id));\n\n    for (const tech of t.techniques) {\n      if (!seen.has(tech.technique_id)) {\n        existing.techniques.push(tech);\n        seen.add(tech.technique_id);\n      }\n    }\n\n    existing.technique_count = existing.techniques.length;\n  }\n\n  out.tactics = [...index.values()];\n  out.technique_ids = uniq([\n    ...(out.technique_ids || []),\n    ...(incoming.technique_ids || []),\n  ]);\n\n  return out;\n}\n\n/* ================= INFRASTRUCTURE ================= */\n\nfunction extractInfrastructure(root) {\n  if (!Array.isArray(root.locations)) return null;\n\n  const locations = root.locations\n    .filter(isObject)\n    .map((l) => {\n      const base = pick(l, [\n        \"fqdn\",\n        \"slug\",\n        \"type\",\n        \"available\",\n        \"enabled\",\n        \"title\",\n        \"updated\",\n        \"lastscrape\",\n      ]);\n\n      if (isObject(l.http)) {\n        base.http = {\n          status: l.http.status,\n          final_url: l.http.final_url,\n          fetched_at: l.http.fetched_at,\n        };\n\n        if (isObject(l.http.fingerprint)) {\n          base.http.fingerprint = pick(l.http.fingerprint, [\n            \"server\",\n            \"content_type\",\n            \"cdn\",\n            \"via\",\n            \"set_cookie_present\",\n          ]);\n        }\n      }\n\n      return base;\n    });\n\n  return { locations };\n}\n\nfunction mergeInfrastructure(current, incoming) {\n  if (!incoming?.locations?.length) return current;\n  const out = current || { locations: [] };\n\n  const map = new Map();\n  for (const loc of out.locations || []) {\n    map.set(`${loc.fqdn}|${loc.type}|${loc.slug}`, loc);\n  }\n\n  for (const loc of incoming.locations) {\n    const key = `${loc.fqdn}|${loc.type}|${loc.slug}`;\n    if (!map.has(key)) map.set(key, loc);\n  }\n\n  out.locations = [...map.values()];\n  return out;\n}\n\n/* ================= RANSOMWARE ================= */\n\nfunction extractRansomware(root) {\n  return {\n    extensions: uniq(Array.isArray(root.extensions) ? root.extensions : []),\n    url: root.url ?? null,\n    parser: root.parser ?? null,\n  };\n}\n\n/* ================= MAIN ================= */\n\nconst merged = {\n  actor: {},\n  mitre: null,\n  tooling: [],\n  infrastructure: null,\n  financial: null,\n  ransomware: {},\n};\n\nfor (const item of items) {\n  const root = item.json ?? item;\n\n  // Actor\n  const actor = extractActor(root);\n  merged.actor.name ??= actor.name;\n  merged.actor.description ??= actor.description;\n  merged.actor.meta ??= actor.meta;\n  merged.actor.confidence ??= actor.confidence;\n\n  merged.actor.profile_refs = uniq([\n    ...(merged.actor.profile_refs || []),\n    ...(actor.profile_refs || []),\n  ]);\n\n  merged.actor.aliases = uniq([\n    ...(merged.actor.aliases || []),\n    ...(actor.aliases || []),\n  ]);\n\n  // ✅ This is what you asked for\n  merged.actor.synonyms = uniq([\n    ...(merged.actor.synonyms || []),\n    ...(actor.synonyms || []),\n  ]);\n\n  merged.actor.alt_names = uniq([\n    ...(merged.actor.alt_names || []),\n    ...(actor.alt_names || []),\n  ]);\n\n  // Financial\n  const fin = extractFinancial(root);\n  if (fin.btc_addresses.length) {\n    merged.financial = merged.financial || { btc_addresses: [] };\n    merged.financial.btc_addresses = uniq([\n      ...(merged.financial.btc_addresses || []),\n      ...fin.btc_addresses,\n    ]);\n  }\n\n  // Tooling\n  merged.tooling.push(...extractTooling(root));\n\n  // MITRE\n  const mitre = extractMitre(root);\n  if (mitre) merged.mitre = mergeMitre(merged.mitre, mitre);\n\n  // Infrastructure\n  const infra = extractInfrastructure(root);\n  if (infra) merged.infrastructure = mergeInfrastructure(merged.infrastructure, infra);\n\n  // Ransomware\n  const ran = extractRansomware(root);\n  merged.ransomware.extensions = uniq([\n    ...(merged.ransomware.extensions || []),\n    ...ran.extensions,\n  ]);\n  merged.ransomware.url ??= ran.url;\n  merged.ransomware.parser ??= ran.parser;\n}\n\n/* ================= CLEANUP ================= */\n\nif (!merged.actor.profile_refs?.length) delete merged.actor.profile_refs;\nif (!merged.actor.aliases?.length) delete merged.actor.aliases;\nif (!merged.actor.synonyms?.length) delete merged.actor.synonyms;\nif (!merged.actor.alt_names?.length) delete merged.actor.alt_names;\nif (!merged.actor.confidence) delete merged.actor.confidence;\n\nif (!merged.mitre?.tactics?.length) delete merged.mitre;\nif (!merged.tooling.length) delete merged.tooling;\nif (!merged.infrastructure?.locations?.length) delete merged.infrastructure;\nif (!merged.financial?.btc_addresses?.length) delete merged.financial;\n\nif (\n  !merged.ransomware?.extensions?.length &&\n  merged.ransomware?.url == null &&\n  merged.ransomware?.parser == null\n) {\n  delete merged.ransomware;\n}\n\nreturn [{ json: merged }];\n"
+        "jsCode": "/**\n * Threat Intelligence Extractor – n8n compatible\n * Includes:\n * - Actor (aliases/synonyms/meta.refs)\n * - Financial (btc_address)\n * - Tooling\n * - MITRE (merge tactics/techniques)\n * - Infrastructure (merge locations)\n * - Ransomware (extensions/url/parser)\n * - Ransom Notes (supports: root-is-note + notes/ransom_notes/note/readme/files)\n * - Extortion grouped by chat_id (initial/negotiated + messages per chat)\n */\n\n/* ================= HELPERS ================= */\n\nfunction isObject(v) {\n  return v && typeof v === \"object\" && !Array.isArray(v);\n}\n\nfunction uniq(arr) {\n  return [...new Set((arr || []).filter(Boolean))];\n}\n\nfunction isValidTechniqueId(id) {\n  return typeof id === \"string\" && /^T\\d{4}(\\.\\d{3})?$/.test(id.trim());\n}\n\nfunction pick(obj, keys) {\n  const out = {};\n  for (const k of keys) {\n    if (obj && Object.prototype.hasOwnProperty.call(obj, k)) out[k] = obj[k];\n  }\n  return out;\n}\n\nfunction isMeaningful(v) {\n  if (v == null) return false;\n  const s = String(v).trim();\n  if (!s) return false;\n  const lowered = s.toLowerCase();\n  if (lowered === \"null\" || lowered === \"n/a\" || lowered === \"na\") return false;\n  return true;\n}\n\nfunction normalizeStr(v) {\n  return isMeaningful(v) ? String(v).trim() : null;\n}\n\n/* ================= EXTORTION (CHAT-GROUPED) ================= */\n\nfunction dedupeChatMessages(chat) {\n  const seen = new Set();\n  const out = [];\n  for (const m of chat.messages || []) {\n    const k = JSON.stringify({\n      party: m.party ?? null,\n      timestamp: m.timestamp ?? null,\n      content: m.content ?? null,\n    });\n    if (seen.has(k)) continue;\n    seen.add(k);\n    out.push(m);\n  }\n  chat.messages = out;\n}\n\nfunction upsertChat(chatMap, root) {\n  const chatId = root.chat_id ?? null;\n  if (!chatId) return;\n\n  if (!chatMap.has(chatId)) {\n    chatMap.set(chatId, {\n      chat_id: chatId,\n      client: root.client ?? null,\n      group: root.group ?? root.name ?? root.common_name ?? null,\n      paid: typeof root.paid === \"boolean\" ? root.paid : null,\n      message_count: typeof root.message_count === \"number\" ? root.message_count : null,\n      initial_ransom: null,\n      negotiated_ransom: null,\n      messages: [],\n    });\n  }\n\n  const c = chatMap.get(chatId);\n\n  // fill metadata if seen later\n  c.client ??= root.client ?? null;\n  c.group ??= root.group ?? root.name ?? root.common_name ?? null;\n  if (c.paid === null && typeof root.paid === \"boolean\") c.paid = root.paid;\n  if (c.message_count === null && typeof root.message_count === \"number\") {\n    c.message_count = root.message_count;\n  }\n\n  // ransoms (supports negotiatedransom and negociatedransom typo)\n  const init = normalizeStr(root.initialransom);\n  const nego = normalizeStr(root.negotiatedransom ?? root.negociatedransom);\n\n  c.initial_ransom ??= init;\n  c.negotiated_ransom ??= nego;\n\n  // messages\n  if (Array.isArray(root.messages)) {\n    for (const m of root.messages) {\n      if (!isObject(m)) continue;\n      const msg = {\n        party: m.party ?? null,\n        content: m.content ?? null,\n        timestamp: m.timestamp ?? null,\n      };\n      if (!msg.party && !msg.content && !msg.timestamp) continue;\n      c.messages.push(msg);\n    }\n  }\n}\n\n/* ================= ACTOR ================= */\n\nfunction extractActor(root) {\n  const primaryName = root.name ?? root.common_name ?? root.actor_name ?? null;\n\n  const aliases = (Array.isArray(root.aliases) ? root.aliases : [])\n    .filter((x) => typeof x === \"string\")\n    .map((x) => x.trim())\n    .filter(Boolean);\n\n  // synonyms can be at root.synonyms OR meta.synonyms\n  const synonyms = [\n    ...(Array.isArray(root.synonyms) ? root.synonyms : []),\n    ...(Array.isArray(root?.meta?.synonyms) ? root.meta.synonyms : []),\n  ]\n    .filter((x) => typeof x === \"string\")\n    .map((x) => x.trim())\n    .filter(Boolean);\n\n  const altNames = (Array.isArray(root.alt_names) ? root.alt_names : [])\n    .filter((x) => typeof x === \"string\")\n    .map((x) => x.trim())\n    .filter(Boolean);\n\n  // References: root.profile + meta.refs\n  const profileRefs = [\n    ...(Array.isArray(root.profile) ? root.profile : []),\n    ...(Array.isArray(root?.meta?.refs) ? root.meta.refs : []),\n  ].filter(Boolean);\n\n  return {\n    name: primaryName,\n    description: root.description ?? null,\n    meta: root.meta ?? null,\n    profile_refs: uniq(profileRefs),\n    aliases: uniq(aliases),\n    synonyms: uniq(synonyms),\n    alt_names: uniq(altNames),\n    confidence: root.confidence ?? null,\n  };\n}\n\n/* ================= FINANCIAL ================= */\n\nfunction extractFinancial(root) {\n  return {\n    btc_addresses: uniq(Array.isArray(root.btc_address) ? root.btc_address : []),\n  };\n}\n\n/* ================= TOOLING ================= */\n\nfunction extractTooling(root) {\n  if (!Array.isArray(root.tools)) return [];\n  return root.tools\n    .filter(isObject)\n    .map((block) => {\n      const out = {};\n      for (const [k, v] of Object.entries(block)) {\n        if (Array.isArray(v) && v.length) out[k] = uniq(v);\n      }\n      return out;\n    })\n    .filter((x) => Object.keys(x).length);\n}\n\n/* ================= MITRE ================= */\n\nfunction extractMitre(root) {\n  if (!Array.isArray(root.ttps)) return null;\n\n  const tactics = [];\n  const techniqueIds = new Set();\n\n  for (const t of root.ttps) {\n    if (!isObject(t)) continue;\n\n    const tactic = {\n      tactic_id: t.tactic_id,\n      tactic_name: t.tactic_name,\n      techniques: [],\n    };\n\n    if (Array.isArray(t.techniques)) {\n      for (const tech of t.techniques) {\n        if (!isObject(tech)) continue;\n        if (!isValidTechniqueId(tech.technique_id)) continue;\n\n        tactic.techniques.push({\n          technique_id: tech.technique_id,\n          technique_name: tech.technique_name,\n          technique_details: tech.technique_details,\n        });\n\n        techniqueIds.add(tech.technique_id);\n      }\n    }\n\n    if (tactic.techniques.length) {\n      tactic.technique_count = tactic.technique_count ?? tactic.techniques.length;\n      tactics.push(tactic);\n    }\n  }\n\n  return {\n    tactics,\n    technique_ids: [...techniqueIds],\n  };\n}\n\nfunction mergeMitre(current, incoming) {\n  if (!incoming?.tactics?.length) return current;\n  const out = current || { tactics: [], technique_ids: [] };\n\n  const index = new Map();\n  for (const t of out.tactics || []) {\n    index.set(`${t.tactic_id}|${t.tactic_name}`, t);\n  }\n\n  for (const t of incoming.tactics) {\n    const key = `${t.tactic_id}|${t.tactic_name}`;\n\n    if (!index.has(key)) {\n      index.set(key, {\n        tactic_id: t.tactic_id,\n        tactic_name: t.tactic_name,\n        techniques: [...t.techniques],\n        technique_count: t.technique_count ?? t.techniques.length,\n      });\n      continue;\n    }\n\n    const existing = index.get(key);\n    const seen = new Set(existing.techniques.map((x) => x.technique_id));\n\n    for (const tech of t.techniques) {\n      if (!seen.has(tech.technique_id)) {\n        existing.techniques.push(tech);\n        seen.add(tech.technique_id);\n      }\n    }\n\n    existing.technique_count = existing.techniques.length;\n  }\n\n  out.tactics = [...index.values()];\n  out.technique_ids = uniq([\n    ...(out.technique_ids || []),\n    ...(incoming.technique_ids || []),\n  ]);\n\n  return out;\n}\n\n/* ================= INFRASTRUCTURE ================= */\n\nfunction extractInfrastructure(root) {\n  if (!Array.isArray(root.locations)) return null;\n\n  const locations = root.locations\n    .filter(isObject)\n    .map((l) => {\n      const base = pick(l, [\n        \"fqdn\",\n        \"slug\",\n        \"type\",\n        \"available\",\n        \"enabled\",\n        \"title\",\n        \"updated\",\n        \"lastscrape\",\n      ]);\n\n      if (isObject(l.http)) {\n        base.http = {\n          status: l.http.status,\n          final_url: l.http.final_url,\n          fetched_at: l.http.fetched_at,\n        };\n\n        if (isObject(l.http.fingerprint)) {\n          base.http.fingerprint = pick(l.http.fingerprint, [\n            \"server\",\n            \"content_type\",\n            \"cdn\",\n            \"via\",\n            \"set_cookie_present\",\n          ]);\n        }\n      }\n\n      return base;\n    });\n\n  return { locations };\n}\n\nfunction mergeInfrastructure(current, incoming) {\n  if (!incoming?.locations?.length) return current;\n  const out = current || { locations: [] };\n\n  const map = new Map();\n  for (const loc of out.locations || []) {\n    map.set(`${loc.fqdn}|${loc.type}|${loc.slug}`, loc);\n  }\n\n  for (const loc of incoming.locations) {\n    const key = `${loc.fqdn}|${loc.type}|${loc.slug}`;\n    if (!map.has(key)) map.set(key, loc);\n  }\n\n  out.locations = [...map.values()];\n  return out;\n}\n\n/* ================= RANSOMWARE ================= */\n\nfunction extractRansomware(root) {\n  return {\n    extensions: uniq(Array.isArray(root.extensions) ? root.extensions : []),\n    url: root.url ?? null,\n    parser: root.parser ?? null,\n  };\n}\n\n/* ================= RANSOM NOTES (ROBUST) =================\n * Supports common schemas:\n * - root itself is a note object {note_name, extension, content, ...}   ✅ YOUR INPUT SHAPE\n * - root.notes[]\n * - root.ransom_notes[]\n * - root.note (object)\n * - root.readme (object)\n * - root.files[] where items include content + a name\n */\n\nfunction extractRansomNotes(root) {\n  const candidates = [];\n\n  // ✅ 0) root itself is a note object\n  if (\n    isObject(root) &&\n    (root.note_name || root.name || root.filename) &&\n    typeof root.content === \"string\"\n  ) {\n    candidates.push(root);\n  }\n\n  // 1) root.notes[]\n  if (Array.isArray(root.notes)) candidates.push(...root.notes);\n\n  // 2) root.ransom_notes[]\n  if (Array.isArray(root.ransom_notes)) candidates.push(...root.ransom_notes);\n\n  // 3) root.note (single object)\n  if (isObject(root.note)) candidates.push(root.note);\n\n  // 4) root.readme (single object)\n  if (isObject(root.readme)) candidates.push(root.readme);\n\n  // 5) root.files[] that look like notes\n  if (Array.isArray(root.files)) {\n    for (const f of root.files) {\n      if (!isObject(f)) continue;\n      if (typeof f.content !== \"string\") continue;\n      if (!(f.note_name || f.name || f.filename)) continue;\n\n      candidates.push({\n        note_name: f.note_name ?? f.name ?? f.filename,\n        extension: f.extension ?? null,\n        content: f.content,\n        id: f.id ?? null,\n        client: f.client ?? root.client ?? null,\n        group: f.group ?? root.group ?? null,\n      });\n    }\n  }\n\n  return candidates\n    .filter(isObject)\n    .map((n) => ({\n      id: n.id ?? root.id ?? null,\n      client: n.client ?? root.client ?? null,\n      group: n.group ?? root.group ?? null,\n      note_name: n.note_name ?? n.name ?? n.filename ?? null,\n      extension: n.extension ?? null,\n      content: n.content ?? null,\n    }))\n    .filter(\n      (n) =>\n        typeof n.content === \"string\" &&\n        n.content.trim().length > 0 &&\n        (n.note_name || n.extension)\n    );\n}\n\n/* ================= MAIN ================= */\n\nconst merged = {\n  actor: {},\n  mitre: null,\n  tooling: [],\n  infrastructure: null,\n  financial: null,\n  ransomware: {\n    extensions: [],\n    url: null,\n    parser: null,\n    notes: [],\n  },\n  extortion: { chats: [] },\n};\n\nconst chatMap = new Map();\n\nfor (const item of items) {\n  const root = item.json ?? item;\n\n  // ✅ Extortion chats (initial/negotiated + messages grouped by chat_id)\n  upsertChat(chatMap, root);\n\n  // Actor\n  const actor = extractActor(root);\n  merged.actor.name ??= actor.name;\n  merged.actor.description ??= actor.description;\n  merged.actor.meta ??= actor.meta;\n  merged.actor.confidence ??= actor.confidence;\n\n  merged.actor.profile_refs = uniq([\n    ...(merged.actor.profile_refs || []),\n    ...(actor.profile_refs || []),\n  ]);\n\n  merged.actor.aliases = uniq([\n    ...(merged.actor.aliases || []),\n    ...(actor.aliases || []),\n  ]);\n\n  merged.actor.synonyms = uniq([\n    ...(merged.actor.synonyms || []),\n    ...(actor.synonyms || []),\n  ]);\n\n  merged.actor.alt_names = uniq([\n    ...(merged.actor.alt_names || []),\n    ...(actor.alt_names || []),\n  ]);\n\n  // Financial\n  const fin = extractFinancial(root);\n  if (fin.btc_addresses.length) {\n    merged.financial = merged.financial || { btc_addresses: [] };\n    merged.financial.btc_addresses = uniq([\n      ...(merged.financial.btc_addresses || []),\n      ...fin.btc_addresses,\n    ]);\n  }\n\n  // Tooling\n  merged.tooling.push(...extractTooling(root));\n\n  // MITRE\n  const mitre = extractMitre(root);\n  if (mitre) merged.mitre = mergeMitre(merged.mitre, mitre);\n\n  // Infrastructure\n  const infra = extractInfrastructure(root);\n  if (infra) merged.infrastructure = mergeInfrastructure(merged.infrastructure, infra);\n\n  // Ransomware\n  const ran = extractRansomware(root);\n  merged.ransomware.extensions = uniq([\n    ...(merged.ransomware.extensions || []),\n    ...ran.extensions,\n  ]);\n  merged.ransomware.url ??= ran.url;\n  merged.ransomware.parser ??= ran.parser;\n\n  // ✅ Ransom notes\n  const notes = extractRansomNotes(root);\n  if (notes.length) merged.ransomware.notes.push(...notes);\n}\n\n/* ================= FINALIZE EXTORTION ================= */\n\nmerged.extortion.chats = [...chatMap.values()];\n\nfor (const c of merged.extortion.chats) {\n  dedupeChatMessages(c);\n\n  // clean empties\n  if (!isMeaningful(c.initial_ransom)) delete c.initial_ransom;\n  if (!isMeaningful(c.negotiated_ransom)) delete c.negotiated_ransom;\n  if (c.paid === null) delete c.paid;\n  if (c.message_count === null) delete c.message_count;\n  if (!c.messages?.length) delete c.messages;\n}\n\n/* ================= FINALIZE RANSOM NOTES ================= */\n\n// de-dupe notes by id + note_name + extension (so same filename from different records won't collide)\nif (merged.ransomware?.notes?.length) {\n  const seen = new Set();\n  merged.ransomware.notes = merged.ransomware.notes.filter((n) => {\n    const key = `${n.id ?? \"\"}|${n.note_name ?? \"\"}|${n.extension ?? \"\"}`;\n    if (seen.has(key)) return false;\n    seen.add(key);\n    return true;\n  });\n}\n\n/* ================= CLEANUP ================= */\n\nif (!merged.actor.profile_refs?.length) delete merged.actor.profile_refs;\nif (!merged.actor.aliases?.length) delete merged.actor.aliases;\nif (!merged.actor.synonyms?.length) delete merged.actor.synonyms;\nif (!merged.actor.alt_names?.length) delete merged.actor.alt_names;\nif (!merged.actor.confidence) delete merged.actor.confidence;\n\nif (!merged.mitre?.tactics?.length) delete merged.mitre;\nif (!merged.tooling.length) delete merged.tooling;\nif (!merged.infrastructure?.locations?.length) delete merged.infrastructure;\nif (!merged.financial?.btc_addresses?.length) delete merged.financial;\n\nif (!merged.extortion?.chats?.length) delete merged.extortion;\n\nif (\n  !merged.ransomware?.extensions?.length &&\n  merged.ransomware?.url == null &&\n  merged.ransomware?.parser == null &&\n  !merged.ransomware?.notes?.length\n) {\n  delete merged.ransomware;\n}\n\nreturn [{ json: merged }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1360,
-        -80
+        1808,
+        112
       ],
       "id": "851bc0b9-f37b-4841-94f8-5e16ff2e3efe",
       "name": "Code in JavaScript"
@@ -72,14 +72,14 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=You are a senior Threat Intelligence Analyst.\nYou must produce a professional Threat Intelligence report\nusing ONLY the information explicitly present in the JSON input.\n\nCRITICAL RULES (MANDATORY):\n1. Do NOT invent, infer, assume, or speculate beyond the data provided.\n2. If information is missing, explicitly state: \"No data provided\".\n3. Do NOT add dates, victims, sectors, campaigns, attribution confidence,\n   or motivations unless they are explicitly present in the JSON.\n4. Do NOT enrich with external knowledge or memory.\n5. Every statement in the report MUST be traceable to a field in the JSON.\n6. If a section cannot be written due to lack of data, keep the section\n   and clearly mark it as \"Insufficient data\".\n\nTone:\n- Analytical\n- Neutral\n- Intelligence-grade (no marketing language)\n\nOutput language: english\n\n\n# Threat Intelligence Report\n\n## 1. Threat Actor Identification\nSummarize ONLY:\n- {{ $json.actor.name }}\n- {{ $json.actor.synonyms }}\n- {{ $json.actor.profile_refs }} (as references, not narrative)\n\n## 2. Summary\nUse ONLY:\n{{ $json.actor.description }}\n{{ $json.actor.meta }}\nDo not add context not present in these fields.\n\n## 3. Operative model and observed capacities\nBase this section STRICTLY on:\n- {{ $json.mitre.technique_ids }}\n- {{ $json.mitre.tactics }}\n\nDescribe WHAT is observed, not WHY.\n\n## 4. TTPs (MITRE ATT&CK)\nFor each tactic:\n{{ JSON.stringify($json.mitre.tactics, null, 2) }}\n- do NOT infer kill chain or intent\n\nIf MITRE data is missing: state \"No data provided\".\n\n## 5. Tooling\nList tools EXACTLY as present under {{ JSON.stringify($json.tooling, null, 2) }}\nDo NOT categorize beyond the provided categories.\nDo NOT label tools as commodity, LOLBin, or custom unless explicitly stated.\n\n## 6. Observed Infraestructure\nUse ONLY:\n{{ JSON.stringify($json.infrastructure.locations, null, 2) }}\n\nDescribe:\n- {{ $json.infrastructure.locations[0].type }} (e.g., DLS, Chat)\n- {{ $json.infrastructure.locations[0].fqdn }}\n- availability status {{ $json.infrastructure.locations[0].available }}\n\nDo NOT infer hosting, purpose, or activity timelines.\n\n## 7. Financial Indicators\nUse ONLY:\n- {{ $json.financial.btc_addresses }}\n\nDo NOT assume payment usage, reuse, or attribution.\n\n\n## 9. Analysis limitations\nExplicitly list what CANNOT be assessed due to missing data, such as:\n- Motivation\n- Victimology\n- Targeted sectors or regions\n- Campaign timelines\n- Related actors\n\n\nSTRICT MODE:\nYou are forbidden from using any external knowledge, prior training, or inference.\nYou may ONLY restate, summarize, or reorganize information that exists verbatim in the JSON.\nIf a conclusion cannot be directly traced to a JSON field, do not write it.\n",
+        "text": "=You are a senior Threat Intelligence Analyst.\nYou must produce a professional Threat Intelligence report\nusing ONLY the information explicitly present in the JSON input.\n\nCRITICAL RULES (MANDATORY):\n1. Do NOT invent, infer, assume, or speculate beyond the data provided.\n2. If information is missing, explicitly state: \"No data provided\".\n3. Do NOT add dates, victims, sectors, campaigns, attribution confidence,\n   or motivations unless they are explicitly present in the JSON.\n4. Do NOT enrich with external knowledge or memory.\n5. Every statement in the report MUST be traceable to a field in the JSON.\n6. If a section cannot be written due to lack of data, keep the section\n   and clearly mark it as \"Insufficient data\".\n\nTone:\n- Analytical\n- Neutral\n- Intelligence-grade (no marketing language)\n\nOutput language: english\n\n\n# Threat Intelligence Report\n\n## 1. Threat Actor Identification\nSummarize ONLY:\n- {{ $json.actor.name }}\n- {{ $json.actor.synonyms }}\n- {{ $json.actor.profile_refs }} (as references, not narrative)\n\n## 2. Summary\nUse ONLY:\n{{ $json.actor.description }}\n{{ $json.actor.meta }}\nDo not add context not present in these fields.\n\n## 3. Operative model and observed capacities\nBase this section STRICTLY on:\n- {{ $json.mitre.technique_ids }}\n- {{ $json.mitre.tactics }}\n\nDescribe WHAT is observed, not WHY.\n\n## 4. TTPs (MITRE ATT&CK)\nFor each tactic:\n{{ JSON.stringify($json.mitre.tactics, null, 2) }}\n- do NOT infer kill chain or intent\n\nIf MITRE data is missing: state \"No data provided\".\n\n## 5. Tooling\nList tools EXACTLY as present under {{ JSON.stringify($json.tooling, null, 2) }}\nDo NOT categorize beyond the provided categories.\nDo NOT label tools as commodity, LOLBin, or custom unless explicitly stated.\n\n## 6. Observed Infraestructure\nUse ONLY:\n{{ JSON.stringify($json.infrastructure.locations, null, 2) }}\n\nDescribe:\n- {{ $json.infrastructure.locations[0].type }} (e.g., DLS, Chat)\n- {{ $json.infrastructure.locations[0].fqdn }}\n- availability status {{ $json.infrastructure.locations[0].available }}\n\nDo NOT infer hosting, purpose, or activity timelines.\n\n## 7. Financial Indicators\nUse ONLY:\n- {{ $json.financial.btc_addresses }}\n\nDo NOT assume payment usage, reuse, or attribution.\n## 8. Ransomware Notes Analysis\n\nYou will be given raw text from ransomware notes.\n\nTASK:\n- Do NOT analyze, summarize, classify, or interpret the text.\n- Do NOT add commentary or explanations.\n- Simply return the text exactly as provided.\n\nINPUT DATA:\n{{ JSON.stringify(($json.ransomware?.notes || []).map(n => ({ extension: n.extension, content: n.content })), null, 2) }}\n\nOUTPUT RULES:\n- Output ONLY the raw text.\n- Preserve original wording.\n- Do NOT add or remove content.\n- Do NOT output JSON.\n\n## 9. Extortion Analysis\n\nUse ONLY the data provided in the following JSON.\n\nTASK:\n- For each chat, compare `initial_ransom` against `negotiated_ransom`.\n- Ignore chats where one of the values is missing or not numeric.\n- Convert all ransom values to USD numbers (remove currency symbols and separators).\n- Calculate the discount percentage per chat using:\n  ((initial_ransom - negotiated_ransom) / initial_ransom) * 100\n- Calculate the average discount percentage across all valid chats.\n\nOUTPUT REQUIREMENTS:\n- Report the number of total chats.\n- Report the number of valid chats used in calculations.\n- Report the average discount percentage (rounded to 2 decimals).\n- List each valid chat with its calculated discount.\n- Do NOT include assumptions, explanations, or external context.\n\nINPUT DATA:\n{{ JSON.stringify($json.extortion.chats, null, 2) }}\n\n###9.1. Extortion Pressure Techniques Analysis\nYou are a senior Threat Intelligence Analyst specializing in ransomware negotiations.\n\nSTRICT MODE (MANDATORY):\n- Use ONLY the information explicitly present in the provided JSON.\n- Do NOT infer motives, intentions, or context not stated in the messages.\n- Do NOT use external knowledge, prior training, or general ransomware patterns.\n- If a technique cannot be clearly supported by message content, do NOT include it.\n- Base all conclusions on direct textual evidence from attacker messages only.\n\nTASK:\nFor EACH chat:\n1. Analyze ONLY messages where the attacker is speaking (party = \"Attacker\", \"Akira\", or equivalent non-victim role).\n2. Identify explicit pressure or coercion techniques used to force payment.\n3. Classify techniques based on observable behavior, such as:\n   - Deadlines or countdowns\n   - Threats of data publication\n   - Increasing ransom demands\n   - Claims of data exfiltration\n   - Reputational damage warnings\n   - Business disruption threats\n   - Repeated follow-ups or escalation\n   - Limited-time discounts or urgency framing\n4. For each identified technique:\n   - Provide a short label\n   - Provide a concise description\n   - Quote or paraphrase the exact message content that evidences it\n\nIMPORTANT:\n- Do NOT label techniques that are not clearly demonstrated.\n- If no pressure techniques are present, explicitly state \"No pressure techniques observed\".\n\nINPUT DATA: the same as in \"## 8. Extortion Analysis\"\n\n## 10. Analysis limitations\nExplicitly list what CANNOT be assessed due to missing data, such as:\n- Targeted sectors or regions\n- Campaign timelines\n\n\nSTRICT MODE:\nYou are forbidden from using any external knowledge, prior training, or inference.\nYou may ONLY restate, summarize, or reorganize information that exists verbatim in the JSON.\nIf a conclusion cannot be directly traced to a JSON field, do not write it.\n",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        1632,
-        -80
+        2144,
+        112
       ],
       "id": "d64a6805-864b-4396-b330-4040b1c8b6f0",
       "name": "AI Agent"
@@ -97,8 +97,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        1568,
-        128
+        2048,
+        320
       ],
       "id": "e9fe3b7e-fba8-43d8-bcb7-02564dea6bfd",
       "name": "OpenAI Chat Model",
@@ -117,7 +117,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        800,
+        736,
         112
       ],
       "id": "ee67c13a-4330-4870-b6fa-e6030e1d67de",
@@ -136,6 +136,172 @@
       ],
       "id": "61303a7e-9f7e-4d9a-bd00-c351cad5322e",
       "name": "Malpedia Synonyms"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "ransomnotes",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        736,
+        320
+      ],
+      "id": "b0756acc-c3d3-49df-ba7e-81ed9fe83de0",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "url": "=https://api-pro.ransomware.live/ransomnotes/{{ $json.chatInput }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "INSERT KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        528,
+        320
+      ],
+      "id": "3d320881-21e0-404f-b08a-90ad8213498b",
+      "name": "Ransom Notes Names",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "zmqZq4wb1LjzxZVO",
+          "name": "Multiple Headers Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api-pro.ransomware.live/ransomnotes/{{ $('Ransom Notes Names').item.json.group }}/{{ $json.ransomnotes }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "INSERT KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        960,
+        320
+      ],
+      "id": "7fbfbdfb-56bb-440b-a13c-be39cf15fcbf",
+      "name": "Ransom Notes Content",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "zmqZq4wb1LjzxZVO",
+          "name": "Multiple Headers Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "chats",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        848,
+        512
+      ],
+      "id": "8eb84b72-08d5-413d-93da-f81d61338856",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "url": "=https://api-pro.ransomware.live/negotiations/{{ $json.chatInput }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "INSERT KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        656,
+        512
+      ],
+      "id": "8845cc11-9e52-4f42-8932-8a98f0d1c740",
+      "name": "Negociation ID",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "zmqZq4wb1LjzxZVO",
+          "name": "Multiple Headers Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api-pro.ransomware.live/negotiations/{{ $('Negociation ID').item.json.group }}/{{ $json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpMultipleHeadersAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "INSERT KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1056,
+        512
+      ],
+      "id": "aabf2481-78a1-4e50-a5d8-585173424887",
+      "name": "Negociation Chat",
+      "credentials": {
+        "httpMultipleHeadersAuth": {
+          "id": "zmqZq4wb1LjzxZVO",
+          "name": "Multiple Headers Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        512
+      ],
+      "id": "e42bb740-b14c-4ff0-8033-21c400f5408b",
+      "name": "Wait",
+      "webhookId": "80ff9756-9f50-4430-a514-359cf63f5a5d"
     }
   ],
   "pinData": {},
@@ -144,17 +310,27 @@
       "main": [
         [
           {
-            "node": "Ransomware.live",
-            "type": "main",
-            "index": 0
-          },
-          {
             "node": "Ransomlook.io",
             "type": "main",
             "index": 0
           },
           {
             "node": "Malpedia Synonyms",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Ransom Notes Names",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Ransomware.live",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait",
             "type": "main",
             "index": 0
           }
@@ -237,6 +413,88 @@
           }
         ]
       ]
+    },
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Ransom Notes Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ransom Notes Names": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ransom Notes Content": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Negociation Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Negociation ID": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Negociation Chat": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Negociation ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -244,7 +502,7 @@
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "7832b84b-1894-43b4-b143-c5180cfb256f",
+  "versionId": "e24aee16-1e0f-4a9a-8cd9-b6f39f7ef7ca",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "514bd0e6bb04c92acbed75d5bfedbfa635dcb17dfb712421291ed76cc4d79dc3"
