@@ -1,0 +1,213 @@
+============================================================
+                THREAT INTELLIGENCE REPORT
+============================================================
+
+Threat Actor: Akira Ransomware
+Aliases: PUNK SPIDER, GOLD SAHARA
+
+------------------------------------------------------------
+1. THREAT ACTOR IDENTIFICATION
+------------------------------------------------------------
+This report focuses on the ransomware group known as Akira.
+Information has been collected from multiple reputable sources,
+including:
+
+- CISA
+- SentinelOne
+- BleepingComputer
+- Sophos News
+- Securelist
+- Trellix
+- Sekoia
+- Avast
+
+------------------------------------------------------------
+2. SUMMARY
+------------------------------------------------------------
+The Akira ransomware group first emerged in March 2023. There is
+speculation regarding potential ties to the former CONTI
+ransomware group following its shutdown, during which affiliates
+migrated to independent operations such as Royal and BlackBasta.
+
+Akira affiliates have reportedly collaborated with other
+ransomware operations including Snatch and BlackByte, supported
+by the discovery of shared tooling.
+
+The initial Akira ransomware variant was developed in C++,
+appending the ".akira" file extension and dropping the ransom
+note "akira_readme.txt". This version partially reused CONTI V2
+source code.
+
+On June 29, 2023, Avast released a decryptor for this early
+variant. Shortly after, on July 2, 2023, Akira released a patched
+version written in Rust named "megazord.exe", which appends the
+".powerranges" extension.
+
+Primary initial access methods include brute-force attacks
+against Cisco VPN devices using single-factor authentication,
+as well as exploitation of CVE-2019-6693 and CVE-2022-40684.
+
+Akira targets both Windows and Linux environments, including
+VMware ESXi servers, and operates under a double extortion model.
+Sensitive data is exfiltrated prior to encryption, with threats
+of public disclosure via a Tor-based leak site.
+
+Ransom demands range from $200,000 to over $4 million USD,
+payable in Bitcoin. Akira is assessed to operate independently
+rather than as a Ransomware-as-a-Service (RaaS) platform and
+continues to evolve its tooling and evasion capabilities.
+
+------------------------------------------------------------
+3. OPERATIVE MODEL AND OBSERVED CAPABILITIES
+------------------------------------------------------------
+Observed operational techniques include:
+
+- Use of compromised VPN and domain accounts
+- Exploitation of public-facing services (Cisco VPNs)
+- Creation of local and domain accounts for persistence
+- Execution via PowerShell and Windows Command Shell
+- Use of Windows services and WMI for execution
+- Defense evasion using PowerTool and Zemana drivers
+- Registry modification to disable security controls
+- Credential dumping from LSASS (Mimikatz, LaZagne)
+- Network and system discovery using multiple tools
+- Command and Control via legitimate remote access tools
+- Lateral movement using RDP and tool transfer
+- Data archiving prior to exfiltration
+- Exfiltration using cloud and FTP-based tools
+- Deletion of shadow copies and file encryption
+
+------------------------------------------------------------
+4. MITRE ATT&CK TTPs
+------------------------------------------------------------
+Initial Access (TA0001):
+- Valid Accounts
+- Exploit External Remote Services (CVE-2023-20269)
+
+Persistence (TA0003):
+- Local and Domain Account Creation
+
+Privilege Escalation (TA0004):
+- Valid Domain Accounts
+
+Execution (TA0002):
+- PowerShell
+- CMD
+- WMI
+- Service Execution
+
+Defense Evasion (TA0005):
+- Disable Security Tools
+- Registry Modification
+
+Credential Access (TA0006):
+- LSASS Memory Dumping
+
+Discovery (TA0007):
+- Network and Domain Discovery
+
+Command and Control (TA0011):
+- AnyDesk
+- Ngrok
+
+Lateral Movement (TA0008):
+- RDP
+- Tool Transfer
+
+Collection (TA0009):
+- Data Archiving
+
+Exfiltration (TA0010):
+- RClone
+- FTP Tools
+
+Impact (TA0040):
+- Shadow Copy Deletion
+- Data Encryption
+
+------------------------------------------------------------
+5. TOOLING
+------------------------------------------------------------
+Credential Theft:
+- DonPAPI
+- LaZagne
+- Mimikatz
+
+Defense Evasion:
+- PowerTool
+- Zemana Anti-Rootkit Driver
+
+Discovery / Enumeration:
+- Advanced IP Scanner
+- BloodHound
+- SharpHound
+- MASSCAN
+- ldapdomaindump
+
+Exfiltration:
+- FileZilla
+- MEGA
+- RClone
+- WinSCP
+- Temp[.]sh
+
+Networking / C2:
+- Cloudflared
+- OpenSSH
+- Ngrok
+
+Offensive Security:
+- CrackMapExec
+- Impacket
+- NetExec
+
+Remote Management:
+- AnyDesk
+- MeshAgent
+- MobaXterm
+- Radmin
+- RustDesk
+- TeamViewer
+
+------------------------------------------------------------
+6. OBSERVED INFRASTRUCTURE
+------------------------------------------------------------
+Data Leak Site (DLS):
+- akiral2iz6a7qgd3ayp3l6yub7xx2uep76idk3u2kollpj5z3z636bad.onion
+  Status: Online
+  HTTP Status: 200
+  Server: nginx
+
+Chat Portal:
+- akiralkzxzq2dsrzsrvbr2xgbbu2wgsmxryd4csgfameg52n7efvr2id.onion
+  Status: Online
+  HTTP Status: 403
+  Server: nginx
+
+------------------------------------------------------------
+7. FINANCIAL INDICATORS
+------------------------------------------------------------
+Associated Bitcoin Addresses:
+
+- bc1q6dqe4esmqejmxhpj95qadv0j4clsqcxxp4cd94
+- bc1qandfxc4knaf943njca77edl9mmegzs83tv8lpx
+- bc1qr0pqfghr9cksfc5arr2rak3lt2y50v03pc76nh
+- bc1qpwwtck0zhzrj56fxeayz6wz5546nlp607qzpvh
+- bc1qghj85gz0dkr9jeucana3z4xu50ujtllj50rvj0
+- bc1qcnw5v94y40ast06eatgalnjpluu2p067qewh46
+
+No attribution or transactional analysis available.
+
+------------------------------------------------------------
+8. ANALYSIS LIMITATIONS
+------------------------------------------------------------
+The following aspects could not be assessed due to insufficient data:
+
+- Threat actor motivation
+- Victimology and targeted sectors
+- Campaign timelines
+- Confirmed attribution to related threat groups
+
+------------------------------------------------------------
+END OF REPORT
+============================================================
