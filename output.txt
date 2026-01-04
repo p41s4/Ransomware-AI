@@ -1,131 +1,136 @@
 ============================================================
                 THREAT INTELLIGENCE REPORT
+                     AKIRA RANSOMWARE
 ============================================================
 
-Threat Actor: Akira Ransomware
-Aliases: PUNK SPIDER, GOLD SAHARA
-
-------------------------------------------------------------
 1. THREAT ACTOR IDENTIFICATION
 ------------------------------------------------------------
-This report focuses on the ransomware group known as Akira.
-Information has been collected from multiple reputable sources,
-including:
+The threat actor is identified as the Akira ransomware group, also
+known as:
 
-- CISA
-- SentinelOne
-- BleepingComputer
-- Sophos News
-- Securelist
-- Trellix
-- Sekoia
-- Avast
+- Akira
+- PUNK SPIDER
+- GOLD SAHARA
 
-------------------------------------------------------------
+References to this actor appear in multiple advisories and reports,
+including CISA Alert aa24-109a and research from various security
+vendors and threat intelligence sources.
+
+No additional narrative or assumptions are made beyond these
+identifiers and references.
+
+
 2. SUMMARY
 ------------------------------------------------------------
-The Akira ransomware group first emerged in March 2023. There is
-speculation regarding potential ties to the former CONTI
-ransomware group following its shutdown, during which affiliates
-migrated to independent operations such as Royal and BlackBasta.
+The Akira ransomware group was first observed in March 2023. It has
+been speculated that the group may have ties to the former CONTI
+ransomware group, although this remains unconfirmed speculation.
 
-Akira affiliates have reportedly collaborated with other
-ransomware operations including Snatch and BlackByte, supported
-by the discovery of shared tooling.
+After the cessation of CONTI, affiliates reportedly migrated to
+other ransomware operations such as Royal and BlackBasta. Akira
+affiliates are also believed to collaborate with groups like Snatch
+and BlackByte.
 
-The initial Akira ransomware variant was developed in C++,
-appending the ".akira" file extension and dropping the ransom
-note "akira_readme.txt". This version partially reused CONTI V2
-source code.
+The initial Akira ransomware variant was developed in C++ and
+appended the ".akira" extension to encrypted files. It dropped a
+ransom note named "akira_readme.txt" and was partially based on
+Conti V2 source code. A decryptor for this version was released by
+Avast on June 29, 2023.
 
-On June 29, 2023, Avast released a decryptor for this early
-variant. Shortly after, on July 2, 2023, Akira released a patched
-version written in Rust named "megazord.exe", which appends the
-".powerranges" extension.
+By July 2, 2023, a new version was released to fix a decryption flaw.
+This variant was developed in Rust under the filename "megazord.exe"
+and changed encrypted file extensions to ".powerranges".
 
-Primary initial access methods include brute-force attacks
-against Cisco VPN devices using single-factor authentication,
-as well as exploitation of CVE-2019-6693 and CVE-2022-40684.
+Akira targets both Windows and Linux systems, with a focus on
+corporate networks and VMware ESXi servers. The group employs a
+double extortion model, encrypting files while exfiltrating sensitive
+data and threatening to publish it on a Tor-based leak site.
 
-Akira targets both Windows and Linux environments, including
-VMware ESXi servers, and operates under a double extortion model.
-Sensitive data is exfiltrated prior to encryption, with threats
-of public disclosure via a Tor-based leak site.
+Initial access vectors include brute-force attacks against Cisco VPN
+devices using single-factor authentication, as well as exploitation
+of vulnerabilities such as CVE-2019-6693 and CVE-2022-40684.
 
-Ransom demands range from $200,000 to over $4 million USD,
-payable in Bitcoin. Akira is assessed to operate independently
-rather than as a Ransomware-as-a-Service (RaaS) platform and
-continues to evolve its tooling and evasion capabilities.
+Ransom demands typically range from $200,000 to over $4 million and
+are usually requested in Bitcoin. Akira has affected organizations
+across education, manufacturing, and healthcare sectors.
 
-------------------------------------------------------------
+Akira does not operate as a Ransomware-as-a-Service (RaaS) and
+continues to evolve with improved encryption performance and
+evasion techniques.
+
+
 3. OPERATIVE MODEL AND OBSERVED CAPABILITIES
 ------------------------------------------------------------
-Observed operational techniques include:
+Observed techniques include:
 
-- Use of compromised VPN and domain accounts
-- Exploitation of public-facing services (Cisco VPNs)
-- Creation of local and domain accounts for persistence
-- Execution via PowerShell and Windows Command Shell
-- Use of Windows services and WMI for execution
-- Defense evasion using PowerTool and Zemana drivers
-- Registry modification to disable security controls
-- Credential dumping from LSASS (Mimikatz, LaZagne)
-- Network and system discovery using multiple tools
-- Command and Control via legitimate remote access tools
-- Lateral movement using RDP and tool transfer
-- Data archiving prior to exfiltration
-- Exfiltration using cloud and FTP-based tools
-- Deletion of shadow copies and file encryption
+- Use of valid domain and local accounts (T1078, T1078.002)
+- Exploitation of external remote services and public-facing
+  applications (T1133, T1190)
+- Account creation for persistence (T1136.001, T1136.002)
+- Command execution via PowerShell, CMD, WMI, and services
+  (T1059 family, T1047)
+- Defense evasion through disabling security tools and registry
+  modification (T1562.001, T1112)
+- Credential dumping from LSASS memory (T1003.001)
+- Local and remote system discovery (T1082, T1018)
+- Use of remote access software for C2 (T1229)
+- Lateral movement via RDP and tool transfer (T1021.001, T1570)
+- Data archiving prior to exfiltration (T1560.001)
+- Exfiltration via web services and unencrypted protocols
+  (T1567.002, T1048.003)
+- Impact via system recovery inhibition and file encryption
+  (T1490, T1486)
 
-------------------------------------------------------------
-4. MITRE ATT&CK TTPs
+No conclusions regarding intent or strategic rationale are drawn.
+
+
+4. TTPs (MITRE ATT&CK)
 ------------------------------------------------------------
 Initial Access (TA0001):
-- Valid Accounts
-- Exploit External Remote Services (CVE-2023-20269)
+- Valid accounts (T1078, T1078.002)
+- External remote services and public-facing apps
+  (T1133, T1190, CVE-2023-20269)
 
 Persistence (TA0003):
-- Local and Domain Account Creation
+- Domain and local account creation (T1136.002, T1136.001)
 
 Privilege Escalation (TA0004):
-- Valid Domain Accounts
+- Abuse of valid domain accounts (T1078.002)
 
 Execution (TA0002):
-- PowerShell
-- CMD
-- WMI
-- Service Execution
+- PowerShell, CMD, WMI, service execution
+  (T1059 family, T1047)
 
 Defense Evasion (TA0005):
-- Disable Security Tools
-- Registry Modification
+- Disabling security tools, registry modification
+  (T1562.001, T1112)
 
 Credential Access (TA0006):
-- LSASS Memory Dumping
+- LSASS dumping using tools like Mimikatz and LaZagne
+  (T1003.001)
 
 Discovery (TA0007):
-- Network and Domain Discovery
+- System and network discovery using multiple tools
+  (T1082, T1018)
 
 Command and Control (TA0011):
-- AnyDesk
-- Ngrok
+- Remote access software and tunneling tools (T1229)
 
 Lateral Movement (TA0008):
-- RDP
-- Tool Transfer
+- RDP and lateral tool transfer (T1021.001, T1570)
 
 Collection (TA0009):
-- Data Archiving
+- Data archiving (T1560.001)
 
 Exfiltration (TA0010):
-- RClone
-- FTP Tools
+- Web services and unencrypted protocols
+  (T1567.002, T1048.003)
 
 Impact (TA0040):
-- Shadow Copy Deletion
-- Data Encryption
+- Shadow copy deletion and encryption
+  (T1490, T1486)
 
-------------------------------------------------------------
+
 5. TOOLING
 ------------------------------------------------------------
 Credential Theft:
@@ -139,19 +144,21 @@ Defense Evasion:
 
 Discovery / Enumeration:
 - Advanced IP Scanner
-- BloodHound
-- SharpHound
-- MASSCAN
+- BloodHound / SharpHound
 - ldapdomaindump
+- Masscan
+- ReconFTW
+- SharpShares
+- SoftPerfect NetScan
 
 Exfiltration:
 - FileZilla
 - MEGA
 - RClone
-- WinSCP
 - Temp[.]sh
+- WinSCP
 
-Networking / C2:
+Networking:
 - Cloudflared
 - OpenSSH
 - Ngrok
@@ -161,7 +168,7 @@ Offensive Security:
 - Impacket
 - NetExec
 
-Remote Management:
+RMM Tools:
 - AnyDesk
 - MeshAgent
 - MobaXterm
@@ -169,25 +176,27 @@ Remote Management:
 - RustDesk
 - TeamViewer
 
-------------------------------------------------------------
+
 6. OBSERVED INFRASTRUCTURE
 ------------------------------------------------------------
 Data Leak Site (DLS):
 - akiral2iz6a7qgd3ayp3l6yub7xx2uep76idk3u2kollpj5z3z636bad.onion
-  Status: Online
+  Availability: true
   HTTP Status: 200
   Server: nginx
 
-Chat Portal:
+Chat Service:
 - akiralkzxzq2dsrzsrvbr2xgbbu2wgsmxryd4csgfameg52n7efvr2id.onion
-  Status: Online
+  Availability: true
   HTTP Status: 403
   Server: nginx
 
-------------------------------------------------------------
+Additional URLs observed with availability confirmed.
+
+
 7. FINANCIAL INDICATORS
 ------------------------------------------------------------
-Associated Bitcoin Addresses:
+Observed Bitcoin addresses:
 
 - bc1q6dqe4esmqejmxhpj95qadv0j4clsqcxxp4cd94
 - bc1qandfxc4knaf943njca77edl9mmegzs83tv8lpx
@@ -196,16 +205,117 @@ Associated Bitcoin Addresses:
 - bc1qghj85gz0dkr9jeucana3z4xu50ujtllj50rvj0
 - bc1qcnw5v94y40ast06eatgalnjpluu2p067qewh46
 
-No attribution or transactional analysis available.
+No additional attribution details available.
 
-------------------------------------------------------------
-8. ANALYSIS LIMITATIONS
-------------------------------------------------------------
-The following aspects could not be assessed due to insufficient data:
 
-- Victimology and targeted sectors
-- Campaign timelines
-
+8. RANSOM NOTES
 ------------------------------------------------------------
+Hi friends,
+
+Whatever who you are and what your title is if you're reading this it means the internal infrastructure of your company is fully or partially dead, all your backups - virtual, physical - everything that we managed to reach - are completely removed. Moreover, we have taken a great amount of your corporate data prior to encryption.
+
+Well, for now let's keep all the tears and resentment to ourselves and try to build a constructive dialogue. We're fully aware of what damage we caused by locking your internal sources. At the moment, you have to know:
+
+Dealing with us you will save A LOT due to we are not interested in ruining your financially. We will study in depth your finance, bank & income statements, your savings, investments etc. and present our reasonable demand to you. If you have an active cyber insurance, let us know and we will guide you how to properly use it. Also, dragging out the negotiation process will lead to failing of a deal.
+
+Paying us you save your TIME, MONEY, EFFORTS and be back on track within 24 hours approximately. Our decryptor works properly on any files or systems, so you will be able to check it by requesting a test decryption service from the beginning of our conversation. If you decide to recover on your own, keep in mind that you can permanently lose access to some files or accidently corrupt them - in this case we won't be able to help.
+
+The security report or the exclusive first-hand information that you will receive upon reaching an agreement is of a great value, since NO full audit of your network will show you the vulnerabilities that we've managed to detect and used in order to get into, identify backup solutions and upload your data.
+
+As for your data, if we fail to agree, we will try to sell personal information/trade secrets/databases/source codes - generally speaking, everything that has a value on the darkmarket - to multiple threat actors at ones. Then all of this will be published in our blog - https://akiral2iz6a7qgd3ayp3l6yub7xx2uep76idk3u2kollpj5z3z636bad.onion.
+
+We're more than negotiable and will definitely find the way to settle this quickly and reach an agreement which will satisfy both of us.
+
+If you're indeed interested in our assistance and the services we provide you can reach out to us following simple instructions:
+
+Install TOR Browser to get access to our chat room - https://www.torproject.org/download/.
+
+Paste this link - https://akiralkzxzq2dsrzsrvbr2xgbbu2wgsmxryd4csgfameg52n7efvr2id.onion.
+
+Use this code - [snip] - to log into our chat.
+
+Keep in mind that the faster you will get in touch, the less damage we cause.
+
+-----------------
+
+Hi friends,
+
+Whatever who you are and what your title is, if you're reading this it means the internal infrastructure of your company is fully or partially dead, all your backups - virtual, physical - everything that we managed to reach - are completely removed. Moreover, we have taken a great amount of your corporate data prior to encryption.
+
+ATTENTION! Strictly prohibited:
+
+Deleting files with .arika extension;
+
+Replacing or renaming .arika and .akira files;
+
+Using third party software to recover your systems.
+
+If you violate these rules, we cannot guarantee a successful recovery.
+
+Well, for now let's keep all the tears and resentment to ourselves and try to build a constructive dialogue. We're fully aware of what damage we caused by locking your internal sources. At the moment, you have to know:
+
+Dealing with us you will save A LOT due to we are not interested in ruining you financially. We will study in depth your finance, bank & income statements, your savings, investments etc. and present our reasonable demand to you. If you have an active cyber insurance, let us know and we will guide you how to properly use it. Also, dragging out the negotiation process will lead to failing of the deal.
+
+Paying us you save your TIME, MONEY, EFFORTS and be back on track within 24 hours approximately. Our decryptor works properly on any files or systems, so you will be able to check it by requesting a test decryption service from the beginning of our conversation. If you decide to recover on your own, keep in mind that you can permanently lose access to some files or accidentally corrupt them - in this case we won't be able to help.
+
+The security report or the exclusive first-hand information that you will receive upon reaching an agreement is of great value, since NO full audit of your network will show you the vulnerabilities that we've managed to detect and use in order to get into, identify backup solutions and download your data.
+
+As for your data, if we fail to agree, we will try to sell personal information/trade secrets/databases/source codes - generally speaking, everything that has a value on the darkmarket - to multiple threat actors at once. Then all of this will be published in our blog - akiral2iz6a7qgd3ayp3l6yub7xx2uep76idk3u2kollpj5z3z636bad[.]onion.
+
+We're more than negotiable and will definitely find a way to settle this quickly and reach an agreement which will satisfy both of us.
+
+If you're indeed interested in our assistance and the services we provide you can reach out to us following simple instructions:
+
+Install TOR Browser to get access to our chat room - torproject[.]org/download/.
+
+Paste this link - https://akiralkzxzq2dsrzsrvbr2xgbbu2wgsmxryd4csgfameg52n7efvr2id.onion/d/[snip] .
+
+Use this code - [snip] - to log into our chat.
+
+Keep in mind that the faster you will get in touch, the less damage we cause.
+
+
+9. EXTORTION ANALYSIS
+------------------------------------------------------------
+Total chats observed: 66
+Valid chats used for calculations: 15
+
+Average discount across valid chats: 48.54%
+
+Discounts ranged from approximately 16% to over 86%, indicating high
+negotiation flexibility depending on victim response and timing.
+
+
+9.1 EXTORTION PRESSURE TECHNIQUES
+------------------------------------------------------------
+Identified techniques include:
+
+- Deadlines and countdowns
+- Threats of data publication
+- Claims of data exfiltration
+- Reputational damage warnings
+- Business disruption threats
+- Repeated follow-ups and escalation
+- Limited-time discounts and urgency framing
+
+No additional coercion techniques were identified.
+
+
+10. ANALYSIS LIMITATIONS
+------------------------------------------------------------
+The following could not be assessed due to lack of data:
+
+- Targeted sectors or geographic focus
+- Detailed campaign timelines
+- Confidence levels in attribution
+- Attacker motivations
+- Deep forensic or malware analysis
+- Infrastructure beyond listed onion services
+- Usage patterns of financial indicators
+- Tool customization details
+- Victim response strategies beyond payments
+- Broader impact beyond extortion statements
+
+
 END OF REPORT
 ============================================================
