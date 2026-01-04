@@ -2,7 +2,7 @@
 
 This project implements an automated Threat Intelligence (CTI) pipeline that normalizes multi-source data, extracts high-value intelligence, and generates structured analyst-grade reports using LLMs and n8n.
 
-The design prioritizes data fidelity, traceability, and strict control over hallucinations.
+The design prioritizes data fidelity, traceability, and strict control over hallucinations. Check an output example in the "output.txt" file.
 
 ## Overview
 
