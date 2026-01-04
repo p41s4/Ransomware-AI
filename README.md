@@ -2,6 +2,7 @@
 
 This project implements an **automated ransomware Threat Intelligence pipeline** using **n8n** as the orchestration engine.  
 The workflow aggregates data from multiple public and private sources to produce a **unified intelligence object** and generate a **strict, traceable analytical report** using an LLM-based agent.
+
 See ["output.txt"](https://github.com/p41s4/Ransomware-AI/blob/main/output.txt) to check the quality of the reports you can generate with this pipeline. 
 
 ---
