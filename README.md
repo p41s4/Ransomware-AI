@@ -137,7 +137,7 @@ The AI agent operates in **strict analytical mode** with the following constrain
 - Every statement must be traceable to JSON fields
 - Missing data is explicitly stated as such
 
-### Automatically Generated Sections
+### Final Report Sections
 
 1. Threat Actor Identification
 2. Summary
